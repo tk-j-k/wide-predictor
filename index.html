@@ -1,0 +1,79 @@
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>ワイド予想アプリ</title>
+</head>
+<body>
+  <h2>📈 ワイド予想（CSV読み込み）</h2>
+
+  <input type="file" id="csvFile" accept=".csv" />
+  <button onclick="processCSV()">予想する</button>
+
+  <div id="output"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+  <script>
+    let horses = [];
+
+    function processCSV() {
+      const file = document.getElementById('csvFile').files[0];
+      if (!file) {
+        alert("CSVファイルを選択してください。");
+        return;
+      }
+
+      Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: function(results) {
+          horses = results.data.map(row => ({
+            name: row['馬名'],
+            popularity: parseInt(row['人気']),
+            odds: parseFloat(row['単勝オッズ']),
+            jockeyScore: 1.0  // 騎手スコア仮
+          }));
+
+          showPrediction();
+        }
+      });
+    }
+
+    function calcScore(horse) {
+      return (1 / horse.popularity) * 0.5 + horse.jockeyScore * 0.5;
+    }
+
+    function showPrediction() {
+      let pairs = [];
+
+      for (let i = 0; i < horses.length; i++) {
+        for (let j = i + 1; j < horses.length; j++) {
+          const h1 = horses[i];
+          const h2 = horses[j];
+
+          const score1 = calcScore(h1);
+          const score2 = calcScore(h2);
+          const pairScore = score1 + score2;
+          const avgOdds = (h1.odds + h2.odds) / 2;
+          const expect = pairScore / avgOdds;
+
+          pairs.push({
+            pair: `${h1.name} × ${h2.name}`,
+            expect: expect.toFixed(2)
+          });
+        }
+      }
+
+      pairs.sort((a, b) => b.expect - a.expect);
+      const top3 = pairs.slice(0, 3);
+
+      const output = document.getElementById('output');
+      output.innerHTML = '<h3>🔮 おすすめワイド組</h3>';
+      top3.forEach(p => {
+        output.innerHTML += `<p>${p.pair}（期待値: ${p.expect}）</p>`;
+      });
+    }
+  </script>
+</body>
+</html>
